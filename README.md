@@ -1,2 +1,2 @@
-# decart.github.io
-Project page of paper "Echos of the Prior"
+# DecArt
+This is the repo that contains the source code for DecArt webpage. 
