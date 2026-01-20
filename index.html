@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echoes of the Prior: A Computational Phenomenology of Forgetting</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --text-color: #1f2937;
+            --text-light: #6b7280;
+            --bg-color: #ffffff;
+            --bg-secondary: #f9fafb;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-color);
+            line-height: 1.6;
+            background: var(--bg-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Navbar */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 15px 0;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Banner */
+        .banner {
+            padding: 140px 0 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+
+        .banner-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .banner-subtitle {
+            font-size: 1.5rem;
+            font-weight: 400;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .authors {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        .authors a {
+            color: white;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .authors a:hover {
+            border-bottom-color: white;
+        }
+
+        .banner-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .link-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Sections */
+        section {
+            padding: 80px 0;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 40px;
+            color: var(--text-color);
+        }
+
+        /* TL;DR */
+        .tldr-content {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .tldr-content p {
+            font-size: 1.1rem;
+            color: var(--text-color);
+        }
+
+        .tldr-content strong {
+            color: var(--primary-color);
+        }
+
+        /* Abstract */
+        .abstract-content {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 12px;
+        }
+
+        .abstract-content h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .abstract-content p {
+            color: var(--text-light);
+            text-align: justify;
+        }
+
+        /* Interactive Examples */
+        .interactive-results {
+            background: var(--bg-secondary);
+        }
+
+        .main-display-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto 30px;
+            aspect-ratio: 1 / 1;
+            background: #1a1a2e;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .main-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .iframe-loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a2e;
+            color: white;
+        }
+
+        .iframe-loader.hidden {
+            display: none;
+        }
+
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loader-text {
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        /* Thumbnail Gallery */
+        .thumbnail-gallery {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .thumbnail-item {
+            width: 120px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .thumbnail-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .thumbnail-item.active {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        .thumbnail-item img {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        .thumbnail-label {
+            padding: 8px;
+            font-size: 0.75rem;
+            text-align: center;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        /* Decay Slider */
+        .decay-control {
+            max-width: 500px;
+            margin: 30px auto 0;
+            text-align: center;
+        }
+
+        .decay-control label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .decay-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--border-color);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .decay-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .decay-value {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        /* Citation */
+        .citation-box {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 12px;
+            overflow-x: auto;
+        }
+
+        .citation-box pre {
+            margin: 0;
+            color: #e5e7eb;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Footer */
+        .footer {
+            background: #1a1a2e;
+            color: white;
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .footer p {
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .banner-title {
+                font-size: 2.5rem;
+            }
+
+            .banner-subtitle {
+                font-size: 1.2rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .main-display-container {
+                aspect-ratio: 4 / 3;
+            }
+
+            .thumbnail-item {
+                width: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>DecArt</h2>
+            </div>
+            <div class="nav-links">
+                <a href="#overview">Overview</a>
+                <a href="#interactive-examples">Demo</a>
+                <a href="#citation">Citation</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Banner -->
+    <section class="banner">
+        <div class="container">
+            <div class="banner-content">
+                <h1 class="banner-title">DecArt</h1>
+                <h2 class="banner-subtitle">Decaying Art through Visual Reconstruction</h2>
+                <div class="authors">
+                    <!-- TODO: Add author names and links -->
+                    <a href="#" target="_blank">Anonymous Author(s)</a>,
+                    <!-- <a href="#" target="_blank">Author 2</a>,
+                    <a href="#" target="_blank">Author 3</a> -->
+                    <br><br>
+                    Under Review.
+                </div>
+                <div class="banner-links">
+                    <a href="#" class="link-btn">
+                        <i class="fas fa-file-pdf"></i> Paper
+                    </a>
+                    <a href="#" class="link-btn">
+                        <i class="fab fa-github"></i> Code
+                    </a>
+                    <a href="#interactive-examples" class="link-btn">
+                        <i class="fas fa-play"></i> Demo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TL;DR -->
+    <section id="overview">
+        <div class="container">
+            <div class="tldr-content">
+                <p>
+                    <i class="fas fa-bolt"></i> <strong>TL;DR:</strong>
+                    DecArt: A Computational Simulation of the Fragility of Memory in the Face of Entropic Loss.
+                    <!-- Update with actual project description -->
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Abstract -->
+    <section class="abstract">
+        <div class="container">
+            <div class="abstract-content">
+                <h3><i class="fas fa-file-alt"></i> Abstract</h3>
+                <p>
+                    <!-- Abstract text -->
+                    Memory is not merely the storage of data; it is the scaffolding of reality. When biological memory fades, the world does not simply turn black; it regresses into an unrecognizable chaos. <strong>Echoes of the Prior</strong> is an interactive installation that attempts to visualize this subjective phenomenology of forgetting. By inducing controlled synaptic decay within a Feed-Forward 3D Reconstruction model, we simulate the erosion of the brain's predictive priors. We position the Neural Network not as a tool for engineering, but as a cognitive proxy - a silicon brain whose structural degeneration offers us a glimpse into the disorienting, poetic, and terrifying experience of losing one's grip on the world. Ultimately, we offer this framework as a catalyst, inviting the wider community to explore the uncharted potential of neuromorphic aesthetics in visualizing the fragility of intelligence. 
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Examples -->
+    <section id="interactive-examples" class="interactive-results">
+        <div class="container">
+            <h2 class="section-title">Interactive Examples</h2>
+
+            <!-- Main Display Area -->
+            <div class="main-display-container">
+                <div class="iframe-loader" id="iframeLoader">
+                    <div class="loader-spinner"></div>
+                    <div class="loader-text">Loading interactive demo...</div>
+                </div>
+                <iframe id="mainIframe" class="main-iframe" src=""></iframe>
+            </div>
+
+            <!-- Thumbnail Gallery -->
+            <div class="thumbnail-gallery" id="thumbnailGallery">
+                <!-- Thumbnails will be populated by JavaScript -->
+            </div>
+
+            <!-- Decay Level Control -->
+            <div class="decay-control">
+                <label for="decaySlider">Decay Level</label>
+                <input type="range" id="decaySlider" class="decay-slider" min="0" max="10" value="0" step="1">
+                <div class="decay-value" id="decayValue">0.0</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Citation -->
+    <section id="citation">
+        <div class="container">
+            <h2 class="section-title">Citation</h2>
+            <div class="citation-box">
+                <pre><code>@article{decart2025,
+  title={DecArt: Decaying Art through Visual Reconstruction},
+  author={Author 1 and Author 2 and Author 3},
+  journal={arXiv preprint},
+  year={2025}
+}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 DecArt. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Configuration - scenes and their .viser files
+        const scenes = [
+            // TODO: Add your scenes here after exporting .viser files
+            // Example:
+            // { name: "Scene 1", thumbnail: "assets/thumbnails/scene1.jpg", viserPath: "assets/viser/scene1" },
+            // { name: "Scene 2", thumbnail: "assets/thumbnails/scene2.jpg", viserPath: "assets/viser/scene2" },
+        ];
+
+        // Decay levels available (0.0 to 1.0 in steps of 0.1)
+        const decayLevels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+
+        // State
+        let currentScene = 0;
+        let currentDecay = 0;
+
+        // DOM Elements
+        const mainIframe = document.getElementById('mainIframe');
+        const iframeLoader = document.getElementById('iframeLoader');
+        const thumbnailGallery = document.getElementById('thumbnailGallery');
+        const decaySlider = document.getElementById('decaySlider');
+        const decayValue = document.getElementById('decayValue');
+
+        // Initialize thumbnails
+        function initThumbnails() {
+            thumbnailGallery.innerHTML = '';
+
+            if (scenes.length === 0) {
+                // Placeholder when no scenes are configured
+                thumbnailGallery.innerHTML = `
+                    <div style="text-align: center; color: var(--text-light); padding: 20px;">
+                        <p>No scenes configured yet.</p>
+                        <p style="font-size: 0.85rem;">Run <code>python export_viser.py</code> to generate .viser files.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            scenes.forEach((scene, index) => {
+                const item = document.createElement('div');
+                item.className = `thumbnail-item${index === 0 ? ' active' : ''}`;
+                item.innerHTML = `
+                    <img src="${scene.thumbnail}" alt="${scene.name}" onerror="this.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)'">
+                    <div class="thumbnail-label">${scene.name}</div>
+                `;
+                item.onclick = () => switchScene(index);
+                thumbnailGallery.appendChild(item);
+            });
+        }
+
+        // Switch scene
+        function switchScene(index) {
+            if (index < 0 || index >= scenes.length) return;
+
+            currentScene = index;
+
+            // Update active thumbnail
+            document.querySelectorAll('.thumbnail-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+
+            // Load iframe
+            loadIframe();
+        }
+
+        // Load iframe with current scene and decay level
+        function loadIframe() {
+            if (scenes.length === 0) return;
+
+            const scene = scenes[currentScene];
+            const decay = decayLevels[currentDecay];
+            const viserFile = `${scene.viserPath}/decay_${decay.toFixed(1)}.viser`;
+
+            // Show loader
+            iframeLoader.classList.remove('hidden');
+
+            // Build URL
+            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+            const playbackUrl = `${baseUrl}${viserFile}`;
+            const iframeUrl = `build/?playbackPath=${encodeURIComponent(playbackUrl)}`;
+
+            mainIframe.src = iframeUrl;
+
+            // Hide loader when iframe loads
+            mainIframe.onload = () => {
+                iframeLoader.classList.add('hidden');
+            };
+        }
+
+        // Decay slider handler
+        decaySlider.addEventListener('input', (e) => {
+            currentDecay = parseInt(e.target.value);
+            const decayVal = decayLevels[currentDecay];
+            decayValue.textContent = decayVal.toFixed(1);
+            loadIframe();
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initThumbnails();
+            if (scenes.length > 0) {
+                loadIframe();
+            }
+        });
+    </script>
+</body>
+</html>
