@@ -31,7 +31,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 2400px;
             margin: 0 auto;
             padding: 0 20px;
         }
@@ -49,7 +49,7 @@
         }
 
         .nav-container {
-            max-width: 1200px;
+            max-width: 2400px;
             margin: 0 auto;
             padding: 0 20px;
             display: flex;
@@ -173,7 +173,7 @@
 
         /* Abstract */
         .abstract-content {
-            max-width: 900px;
+            max-width: 1600px;
             margin: 0 auto;
             background: var(--bg-secondary);
             padding: 40px;
@@ -199,9 +199,10 @@
         .main-display-container {
             position: relative;
             width: 100%;
-            max-width: 800px;
+            /* height: 432px; */
+            max-width: 1600px;
             margin: 0 auto 30px;
-            aspect-ratio: 1 / 1;
+            aspect-ratio: 16 / 10;
             background: #1a1a2e;
             border-radius: 12px;
             overflow: hidden;
@@ -511,8 +512,12 @@
     <script>
         // Configuration - scenes and their .viser files
         const scenes = [
-            // TODO: Add your scenes here after exporting .viser files
-            { name: "Scene 1", thumbnail: "assets/thumbnails/train.jpg", viserPath: "assets/viser/train_cc829c4d" },
+            {
+                name: "Scene 1: train",
+                thumbnail: "assets/thumbnails/train.jpg",
+                viserPath: "assets/viser/train_cc829c4d",
+                cameraParams: "initialCameraPosition=-0.5,7,-1&initialCameraLookAt=0.000,0.000,0.000&initialCameraUp=0,0,1&initialCameraFov=0.8727&initDistanceScale=1"
+            },
             // { name: "Scene 2", thumbnail: "assets/thumbnails/scene2.jpg", viserPath: "assets/viser/scene2" },
         ];
 
@@ -583,10 +588,30 @@
             // Show loader
             iframeLoader.classList.remove('hidden');
 
-            // Build URL
-            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+            // Build URL - ensure proper base URL construction
+            let baseUrl = window.location.origin;
+            const pathname = window.location.pathname;
+            // Handle both root and subdirectory deployments
+            if (pathname && pathname !== '/') {
+                // Remove trailing filename if present (e.g., index.html)
+                const pathParts = pathname.split('/');
+                if (pathParts[pathParts.length - 1].includes('.')) {
+                    pathParts.pop();
+                }
+                baseUrl += pathParts.join('/');
+            }
+            // Ensure trailing slash
+            if (!baseUrl.endsWith('/')) {
+                baseUrl += '/';
+            }
+
             const playbackUrl = `${baseUrl}${viserFile}`;
-            const iframeUrl = `build/?playbackPath=${encodeURIComponent(playbackUrl)}`;
+
+            // Initial camera parameters (adjust as needed per scene)
+            const cameraParams = scene.cameraParams || '';
+            const iframeUrl = `${baseUrl}build/?playbackPath=${encodeURIComponent(playbackUrl)}${cameraParams ? '&' + cameraParams : ''}`;
+
+            console.log('Loading viser:', { baseUrl, viserFile, playbackUrl, iframeUrl, cameraParams });
 
             mainIframe.src = iframeUrl;
 

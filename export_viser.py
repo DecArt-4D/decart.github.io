@@ -11,22 +11,36 @@ import argparse
 import pickle
 import os
 import glob
+import time
 from pathlib import Path
 
 import numpy as np
-import viser
 
 
-def export_single_pkl(pkl_path: str, output_path: str, fps: float = 30.0, point_size: float = 0.007):
+
+def export_single_pkl(
+    pkl_path: str,
+    output_path: str,
+    fps: float = 30.0,
+    point_size: float = 0.007,
+    camera_convention: str = "c2w",
+    camera_extra_rot: str = "none",
+    center_mode: str = "none",
+    world_rot: str = "none",
+    coord_mode: str = "da3",
+    world_shift: tuple[float, float, float] = (0.0, 0.0, 0.0),
+):
     """
     Export a single viser_cache.pkl to .viser format.
-
+    
     Args:
         pkl_path: Path to viser_cache.pkl
         output_path: Output .viser file path
         fps: Playback frame rate
         point_size: Point cloud point size
     """
+    import viser
+    
     print(f"Loading {pkl_path}...")
     with open(pkl_path, 'rb') as f:
         frames = pickle.load(f)
@@ -37,52 +51,198 @@ def export_single_pkl(pkl_path: str, output_path: str, fps: float = 30.0, point_
 
     print(f"  Found {len(frames)} frames")
 
-    # Create viser server (headless, won't actually serve)
-    server = viser.ViserServer(port=None)  # port=None for headless
+    # Create viser server on a random high port
+    port = 18000 + os.getpid() % 1000
+    server = viser.ViserServer(port=port, verbose=False)
 
-    # Set up direction (matching server_streaming.py)
-    server.scene.set_up_direction("-y")
+    # DA3 uses -Y up; WebGL/glTF uses +Y up
+    server.scene.set_up_direction("-y" if coord_mode == "da3" else "+y")
 
-    # Get serializer
+    # Give server time to initialize
+    time.sleep(0.5)
+
+    # Get serializer AFTER setting up the scene basics
     serializer = server.get_scene_serializer()
 
-    # Process each frame
+    # Frame duration
     frame_duration = 1.0 / fps
 
-    for i, frame in enumerate(frames):
-        # Clear previous frame's objects by using the same names (they get overwritten)
+    print(f"  Processing {len(frames)} frames...")
 
-        # Add point cloud
+    # Optional recentering to put the scene near origin for better default view
+    center_offset = np.zeros(3, dtype=np.float64)
+    if center_mode != "none":
+        ref_pts = frames[0]["points"]
+        if center_mode == "first_bbox":
+            center_offset = (ref_pts.min(axis=0) + ref_pts.max(axis=0)) * 0.5
+        elif center_mode == "first_mean":
+            center_offset = ref_pts.mean(axis=0)
+    # DA3 writes aligned world coords and c2w quats. Optional OpenCV->WebGL flip.
+    def transform_opencv_to_gltf(points):
+        if coord_mode == "da3":
+            return points
+        transformed = points.copy()
+        transformed[:, 1] = -transformed[:, 1]
+        transformed[:, 2] = -transformed[:, 2]
+        return transformed
+
+    def transform_camera_pos(pos):
+        if coord_mode == "da3":
+            return np.array(pos)
+        return np.array([pos[0], -pos[1], -pos[2]])
+
+    def _quat_mul(q1, q2):
+        """Quaternion multiply (wxyz)."""
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        return np.array([
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+        ])
+
+    def _quat_conj(q):
+        w, x, y, z = q
+        return np.array([w, -x, -y, -z])
+
+    def _rotate_vec(q_wxyz, v):
+        """Rotate vector v by quaternion q (wxyz)."""
+        qv = np.array([0.0, v[0], v[1], v[2]])
+        return _quat_mul(_quat_mul(q_wxyz, qv), _quat_conj(q_wxyz))[1:]
+
+    def transform_camera_quat(quat_wxyz):
+        """Apply basis change for OpenCV->WebGL if requested."""
+        if coord_mode == "da3":
+            return quat_wxyz
+        q_rot = np.array([0.0, 1.0, 0.0, 0.0])  # 180° about X
+        return _quat_mul(q_rot, _quat_mul(quat_wxyz, q_rot))
+
+    def _quat_from_axis180(axis):
+        if axis == "x":
+            return np.array([0.0, 1.0, 0.0, 0.0])
+        if axis == "y":
+            return np.array([0.0, 0.0, 1.0, 0.0])
+        if axis == "z":
+            return np.array([0.0, 0.0, 0.0, 1.0])
+        return np.array([1.0, 0.0, 0.0, 0.0])
+
+    def _quat_from_axis90(axis):
+        s = np.sqrt(0.5)
+        if axis == "x":
+            return np.array([s, s, 0.0, 0.0])
+        if axis == "y":
+            return np.array([s, 0.0, s, 0.0])
+        if axis == "z":
+            return np.array([s, 0.0, 0.0, s])
+        return np.array([1.0, 0.0, 0.0, 0.0])
+
+    def _parse_world_rot(spec):
+        if spec == "none":
+            return np.array([1.0, 0.0, 0.0, 0.0])
+        parts = [p.strip() for p in spec.split("+") if p.strip()]
+        q = np.array([1.0, 0.0, 0.0, 0.0])
+        for part in parts:
+            if part.endswith("90"):
+                q_part = _quat_from_axis90(part[0])
+            elif part.endswith("180"):
+                q_part = _quat_from_axis180(part[0])
+            else:
+                q_part = np.array([1.0, 0.0, 0.0, 0.0])
+            q = _quat_mul(q_part, q)
+        return q
+
+    def apply_camera_extra_rot(quat_wxyz):
+        q_extra = _parse_world_rot(camera_extra_rot)
+        return _quat_mul(q_extra, quat_wxyz)
+
+    def _quat_to_mat(q):
+        w, x, y, z = q
+        return np.array([
+            [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+        ], dtype=np.float64)
+
+    world_rot_q = _parse_world_rot(world_rot)
+    world_rot_mat = _quat_to_mat(world_rot_q)
+    world_shift_vec = np.array(world_shift, dtype=np.float64)
+
+    for i, frame in enumerate(frames):
+        # Get point cloud data
         pts = frame["points"]
         clrs = frame["colors"]
 
-        # Ensure colors are in correct format (0-255 uint8 or 0-1 float)
-        if clrs.max() <= 1.0:
-            clrs_uint8 = (clrs * 255).astype(np.uint8)
-        else:
-            clrs_uint8 = clrs.astype(np.uint8)
+        # Transform points to glTF coordinate system
+        pts_transformed = transform_opencv_to_gltf(pts) - center_offset
+        pts_transformed = (world_rot_mat @ pts_transformed.T).T + world_shift_vec
 
+        # Ensure colors are in correct format (0-255 uint8)
+        if isinstance(clrs, np.ndarray):
+            if clrs.dtype == np.float64 or clrs.dtype == np.float32:
+                if clrs.max() <= 1.0:
+                    clrs_uint8 = (clrs * 255).astype(np.uint8)
+                else:
+                    clrs_uint8 = clrs.astype(np.uint8)
+            else:
+                clrs_uint8 = clrs.astype(np.uint8)
+        else:
+            clrs_uint8 = np.array(clrs, dtype=np.uint8)
+
+        # Add/update point cloud
         server.scene.add_point_cloud(
             name="/video",
-            points=pts.astype(np.float32),
+            points=pts_transformed.astype(np.float32),
             colors=clrs_uint8,
             point_size=point_size,
         )
 
         # Add camera frustum
+        cam_pos = np.array(frame["cam_pos"], dtype=np.float64) - center_offset
+        cam_pos = world_rot_mat @ cam_pos + world_shift_vec
+        cam_quat = np.array(frame["cam_quat"], dtype=np.float64)
+
+        # Normalize quaternion defensively
+        cam_quat = cam_quat / (np.linalg.norm(cam_quat) + 1e-12)
+
+        # If input is world-to-camera, convert to camera-to-world first
+        if camera_convention == "w2c":
+            cam_quat = _quat_conj(cam_quat)
+            cam_pos = -_rotate_vec(cam_quat, cam_pos)
+
+        # Use DA3-aligned poses directly (already in viser coordinates)
+        cam_pos_transformed = transform_camera_pos(cam_pos)
+        cam_quat_transformed = transform_camera_quat(cam_quat)
+        cam_quat_transformed = _quat_mul(world_rot_q, cam_quat_transformed)
+        cam_quat_transformed = apply_camera_extra_rot(cam_quat_transformed)
+
+        # Ensure proper tuple format
+        cam_pos_tuple = tuple(cam_pos_transformed.tolist())
+        cam_quat_tuple = tuple(cam_quat_transformed.tolist())
+
+        # Handle image for camera frustum
+        img = frame.get("image")
+        if img is not None:
+            if isinstance(img, np.ndarray):
+                img = img.astype(np.uint8)
+
         server.scene.add_camera_frustum(
             name="/camera",
             fov=1.0,
-            aspect=frame["aspect"],
+            aspect=float(frame["aspect"]),
             scale=0.05,
-            position=tuple(frame["cam_pos"]),
-            wxyz=tuple(frame["cam_quat"]),
-            image=frame["image"].astype(np.uint8) if frame["image"] is not None else None,
+            position=cam_pos_tuple,
+            wxyz=cam_quat_tuple,
+            image=img,
         )
 
-        # Insert delay for animation timing
+        # Insert sleep for animation timing (except for last frame)
         if i < len(frames) - 1:
             serializer.insert_sleep(frame_duration)
+
+        # Progress indicator
+        if (i + 1) % 50 == 0 or i == len(frames) - 1:
+            print(f"    Processed {i + 1}/{len(frames)} frames")
 
     # Serialize and save
     print(f"  Serializing...")
@@ -91,19 +251,28 @@ def export_single_pkl(pkl_path: str, output_path: str, fps: float = 30.0, point_
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     Path(output_path).write_bytes(data)
 
-    print(f"  Saved to {output_path} ({len(data) / 1024 / 1024:.2f} MB)")
+    file_size_mb = len(data) / 1024 / 1024
+    print(f"  Saved to {output_path} ({file_size_mb:.2f} MB)")
 
+    # Stop server
     server.stop()
     return True
 
 
-def export_project_dir(input_dir: str, output_dir: str, fps: float = 30.0):
+def export_project_dir(
+    input_dir: str,
+    output_dir: str,
+    fps: float = 30.0,
+    decay_filter: str = None,
+    camera_convention: str = "c2w",
+    camera_extra_rot: str = "none",
+    center_mode: str = "none",
+    world_rot: str = "none",
+    coord_mode: str = "da3",
+    world_shift: tuple[float, float, float] = (0.0, 0.0, 0.0),
+):
     """
     Export all decay levels from a project directory.
-
-    Args:
-        input_dir: Path to project directory (e.g., decay_outputs_streaming/uuid)
-        output_dir: Output directory for .viser files
     """
     # Find all decay subdirectories
     decay_dirs = sorted(glob.glob(os.path.join(input_dir, "decay_*")))
@@ -122,11 +291,39 @@ def export_project_dir(input_dir: str, output_dir: str, fps: float = 30.0):
             print(f"  Skipping {decay_dir}: no viser_cache.pkl")
             continue
 
-        # Extract decay value from directory name (e.g., "decay_0.5" -> "0.5")
+        # Extract decay value from directory name
         decay_name = os.path.basename(decay_dir)
+
+        # Apply filter if specified
+        if decay_filter:
+            decay_val = decay_name.replace("decay_", "")
+            if decay_val not in decay_filter.split(","):
+                print(f"  Skipping {decay_name} (not in filter)")
+                continue
+
         output_path = os.path.join(output_dir, f"{decay_name}.viser")
 
-        export_single_pkl(pkl_path, output_path, fps=fps)
+        # Skip if already exists
+        if os.path.exists(output_path):
+            print(f"  Skipping {decay_name}: already exists")
+            continue
+
+        try:
+            export_single_pkl(
+                pkl_path,
+                output_path,
+                fps=fps,
+                camera_convention=camera_convention,
+                camera_extra_rot=camera_extra_rot,
+                center_mode=center_mode,
+                world_rot=world_rot,
+                coord_mode=coord_mode,
+                world_shift=world_shift,
+            )
+        except Exception as e:
+            print(f"  Error exporting {decay_name}: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 def main():
@@ -137,16 +334,84 @@ def main():
     parser.add_argument("--output-dir", type=str, default="assets/viser", help="Output directory for .viser files")
     parser.add_argument("--fps", type=float, default=30.0, help="Playback frame rate")
     parser.add_argument("--point-size", type=float, default=0.007, help="Point cloud point size")
+    parser.add_argument(
+        "--camera-convention",
+        type=str,
+        default="c2w",
+        choices=["c2w", "w2c"],
+        help="Camera pose convention stored in viser_cache.pkl: c2w (default) or w2c",
+    )
+    parser.add_argument(
+        "--camera-extra-rot",
+        type=str,
+        default="none",
+        help="Extra rotation applied to camera (e.g. 'y180', 'z90', or 'y180+z90')",
+    )
+    parser.add_argument(
+        "--center",
+        type=str,
+        default="first_mean",
+        choices=["none", "first_bbox", "first_mean"],
+        help="Recenter scene to origin using first frame (bbox center or mean)",
+    )
+    parser.add_argument(
+        "--world-rot",
+        type=str,
+        default="y180",
+        help="Rotate the whole scene and camera (e.g. 'y180', 'z90', or 'y180+z90')",
+    )
+    parser.add_argument(
+        "--coord-mode",
+        type=str,
+        default="da3",
+        choices=["da3", "webgl"],
+        help="Coordinate convention: da3 uses -Y up; webgl flips Y/Z to +Y up",
+    )
+    parser.add_argument(
+        "--world-shift",
+        type=str,
+        default="0,0,0",
+        help="Translate scene and camera by x,y,z (e.g. '0.1,-0.2,0')",
+    )
+    parser.add_argument("--decay-filter", type=str, help="Comma-separated decay values to export (e.g., '0.0,0.5,1.0')")
 
     args = parser.parse_args()
 
     if args.input:
         # Single file export
         output = args.output or args.input.replace(".pkl", ".viser")
-        export_single_pkl(args.input, output, fps=args.fps, point_size=args.point_size)
+        shift_vals = [float(v) for v in args.world_shift.split(",")]
+        if len(shift_vals) != 3:
+            raise ValueError("--world-shift must be three comma-separated numbers")
+        export_single_pkl(
+            args.input,
+            output,
+            fps=args.fps,
+            point_size=args.point_size,
+            camera_convention=args.camera_convention,
+            camera_extra_rot=args.camera_extra_rot,
+            center_mode=args.center,
+            world_rot=args.world_rot,
+            coord_mode=args.coord_mode,
+            world_shift=tuple(shift_vals),
+        )
     elif args.input_dir:
         # Directory export
-        export_project_dir(args.input_dir, args.output_dir, fps=args.fps)
+        shift_vals = [float(v) for v in args.world_shift.split(",")]
+        if len(shift_vals) != 3:
+            raise ValueError("--world-shift must be three comma-separated numbers")
+        export_project_dir(
+            args.input_dir,
+            args.output_dir,
+            fps=args.fps,
+            decay_filter=args.decay_filter,
+            camera_convention=args.camera_convention,
+            camera_extra_rot=args.camera_extra_rot,
+            center_mode=args.center,
+            world_rot=args.world_rot,
+            coord_mode=args.coord_mode,
+            world_shift=tuple(shift_vals),
+        )
     else:
         parser.print_help()
         print("\nError: Must specify --input or --input-dir")
@@ -154,3 +419,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # python export_viser.py --input /home/gege/Projects/DecayArt/decay_outputs_streaming/cc829c4d/decay_0.0/viser_cache.pkl --output assets/viser/train_cc829c4d/test_transformed.viser
+    # initialCameraUp=0,0,1&initialCameraLookAt=0,0,0&initialCameraPosition=-2,10,-1
