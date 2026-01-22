@@ -706,7 +706,7 @@
                     const iframeDoc = mainIframe.contentDocument;
                     if (!iframeDoc) return;
                     const primary = getComputedStyle(document.documentElement)
-                        .getPropertyValue('--maintine-primary-color')
+                        .getPropertyValue('--mantine-primary-color')
                         .trim()
                         || getComputedStyle(document.documentElement)
                             .getPropertyValue('--mantine-slider-color')
@@ -720,6 +720,18 @@
                     styleTag.textContent = `
                         .mantine-Slider-bar {
                             background-color: ${primary || '#ffffff'} !important;
+                        }
+                        .mantine-Slider-track {
+                            background-color: ${primary || '#ffffff'}33 !important;
+                        }
+                        .mantine-Slider-track::before {
+                            background-color: ${primary || '#ffffff'}33 !important;
+                        }
+                        .mantine-Progress-section {
+                            background-color: ${primary || '#ffffff'}55 !important;
+                        }
+                        .mantine-Progress-root {
+                            background-color: ${primary || '#ffffff'}33 !important;
                         }
                     `;
                 } catch (err) {
