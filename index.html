@@ -18,7 +18,8 @@
             --bg-color: #131313; /* TODO: Viser DarkMode background */
             --bg-secondary: #1a1a1e;
             --bg-third: #000000;
-            --border-color: #1f2937;
+            --border-color: #595959; /* #1f2937 */
+            --slider-text: #f3f4f6;
         }
 
         * {
@@ -174,7 +175,7 @@
         }
 
         .tldr-content strong {
-            color: var(--primary-color);
+            color: var(--text-color);
         }
 
         /* Abstract */
@@ -189,7 +190,7 @@
         .abstract-content h3 {
             font-size: 1.3rem;
             margin-bottom: 20px;
-            color: var(--primary-color);
+            color: var(--text-color);
         }
 
         .abstract-content p {
@@ -279,12 +280,13 @@
 
         .thumbnail-item:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(99, 102, 241, 0.35);
         }
 
         .thumbnail-item.active {
             position: relative;
             outline: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(99, 102, 241, 0.6), 0 0 16px rgba(99, 102, 241, 0.45);
         }
 
         .thumbnail-item.active::before,
@@ -334,9 +336,10 @@
 
         /* Decay Slider */
         .decay-control {
-            max-width: 500px;
+            max-width: 800px;
             margin: 30px auto 0;
             text-align: center;
+            font-size: 1.2rem;
         }
 
         .decay-control label {
@@ -362,13 +365,52 @@
             border-radius: 50%;
             background: var(--primary-color);
             cursor: pointer;
+            box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0);
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .decay-slider:hover::-webkit-slider-thumb {
+            background: var(--primary-dark);
+        }
+
+        .decay-slider:active::-webkit-slider-thumb {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.25);
+        }
+
+        .decay-slider:focus-visible::-webkit-slider-thumb {
+            box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.35);
+        }
+
+        .decay-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0);
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .decay-slider:hover::-moz-range-thumb {
+            background: var(--primary-dark);
+        }
+
+        .decay-slider:active::-moz-range-thumb {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.25);
+        }
+
+        .decay-slider:focus-visible::-moz-range-thumb {
+            box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.35);
         }
 
         .decay-value {
             margin-top: 10px;
             font-size: 1.2rem;
             font-weight: 600;
-            color: var(--primary-color);
+            color: var(--slider-text);
         }
 
         /* Citation */
@@ -499,7 +541,10 @@
     <section id="interactive-examples" class="interactive-results">
         <div class="container">
             <h2 class="section-title">Interactive Examples</h2>
-
+            <!-- Thumbnail Gallery -->
+            <div class="thumbnail-gallery" id="thumbnailGallery">
+                <!-- Thumbnails will be populated by JavaScript -->
+            </div>
             <!-- Main Display Area -->
             <div class="main-display-container">
                 <div class="iframe-loader" id="iframeLoader">
@@ -507,11 +552,6 @@
                     <div class="loader-text">Loading interactive demo...</div>
                 </div>
                 <iframe id="mainIframe" class="main-iframe" src=""></iframe>
-            </div>
-
-            <!-- Thumbnail Gallery -->
-            <div class="thumbnail-gallery" id="thumbnailGallery">
-                <!-- Thumbnails will be populated by JavaScript -->
             </div>
 
             <!-- Decay Level Control -->
@@ -526,7 +566,6 @@
     <!-- Citation -->
     <section id="citation">
         <div class="container">
-            <h2 class="section-title">Citation</h2>
             <div class="citation-box">
                 <pre><code>@article{decart2026,
   title={Echoes of the Prior: A Computational Phenomenology of Forgetting},
