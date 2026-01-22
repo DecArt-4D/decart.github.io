@@ -20,6 +20,7 @@
             --bg-third: #000000;
             --border-color: #24282c; /* #1f2937 #595959 */
             --slider-text: #4f46e5;
+            --mantine-slider-color: #e1e2e4;
         }
 
         * {
@@ -408,7 +409,7 @@
 
         .decay-value {
             margin-top: 10px;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
             font-weight: 600;
             color: var(--slider-text);
         }
@@ -693,6 +694,29 @@
             // Hide loader when iframe loads
             mainIframe.onload = () => {
                 iframeLoader.classList.add('hidden');
+                try {
+                    const iframeDoc = mainIframe.contentDocument;
+                    if (!iframeDoc) return;
+                    const primary = getComputedStyle(document.documentElement)
+                        .getPropertyValue('--mantine-slider-color')
+                        .trim();
+                    if (primary) {
+                        iframeDoc.documentElement.style.setProperty('--mantine-slider-color', primary);
+                    }
+                    let styleTag = iframeDoc.getElementById('progressColorOverride');
+                    if (!styleTag) {
+                        styleTag = iframeDoc.createElement('style');
+                        styleTag.id = 'progressColorOverride';
+                        iframeDoc.head.appendChild(styleTag);
+                    }
+                    styleTag.textContent = `
+                        .mantine-Slider-bar {
+                            background-color: var(--mantine-slider-color) !important;
+                        }
+                    `;
+                } catch (err) {
+                    console.warn('Could not override iframe progress color:', err);
+                }
             };
         }
 
